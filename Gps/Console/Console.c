@@ -1,9 +1,9 @@
-//*************** SEND COMMANDS TO THE GPS MODULE (GPS CONSOLE) ***************
+//*********************** SEND COMMANDS TO THE GPS MODULE (GPS CONSOLE) ****************************
 // Copyright (c) 2021 Trenser Technology Solutions (P) Ltd
 // All Rights Reserved
 //**************************************************************************************************
 // File			: Console.c
-// Summary	: send the Message queue to receiver.
+// Summary		: send the Message queue to receiver.
 // Author		: Abhilash
 // Date			: 01/11/21
 //******************************************* Include Files ****************************************
@@ -11,12 +11,12 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <string.h>
-#include "Console.h"
-//****************************************** Global Types *****************************************
+#include "Common.h"
+//****************************************** Global Types ******************************************
 
-//****************************************** Global Constants *************************************
+//****************************************** Global Constants **************************************
 
-//*************************************** Local Functions ******************************************
+//****************************************** Local Functions ***************************************
 static void BuffClear();
 static void GenerateMessageKey();
 static void CreateMessageQueue();
@@ -26,39 +26,31 @@ static void ConsoleStartCommand(uint8* pucValue);
 static void ConsoleProcessCommand(uint8* pucValue);
 static void ConsoleSendData(uint16 uiMId, uint8* pucReceiveBuff);
 
-//****************************************** Local variables ****************************************
+//****************************************** Local variables ***************************************
 static STMESSAGEBUFFER stMessage = {0};
 static key_t ikey = 0;
-static uint16 uiMessageId = FALSE;
-static uint8 ucConvertedData[CONVERTED_BUFF_MAX_SIZE] = {0};
-static uint8 ucUserEnteredData[MAX_SIZE] = {0};
-static uint8* pucHelpCommand[] = {	"Start\n",
-														"Loc\n",
-														"Fix\n",
-														"SatCon\n",
-														"Reset\n",
-														"Stop\n",
-														"quit\n"
-													 };
-static STPARSE CommandTable[] = {	{GPS_START,		GPS_START_VALUE		},
-															{GPS_LOC,			GPS_LOC_VALUE			},
-															{GPS_FIX,			GPS_FIX_VALUE				},
-															{GPS_SATCON,	GPS_SATCON_VALUE		},
-															{GPS_RESET,		GPS_RESET_VALUE		},
-															{GPS_HELP,		GPS_HELP_VALUE			},
-															{GPS_QUIT,			GPS_QUIT_VALUE			}
-														};
+static uint16 usMessageId = FALSE;
+static uint8 pucConvertedData[CONVERTED_BUFF_MAX_SIZE] = {0};
+static uint8 pucUserEnteredData[MAX_SIZE] = {0};
+static STPARSE CommandTable[] = {	{GPS_START,		GPS_START_VALUE	},
+												{GPS_LOC,		GPS_LOC_VALUE		},
+												{GPS_FIX,		GPS_FIX_VALUE		},
+												{GPS_SATCON,	GPS_SATCON_VALUE	},
+												{GPS_RESET,		GPS_RESET_VALUE	},
+												{GPS_HELP,		GPS_HELP_VALUE		},
+												{GPS_QUIT,		GPS_QUIT_VALUE		}
+											};
 
 //*************************************** Enum Declarations ***************************************
 
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Send the message to the Receiver
-//Inputs	: None
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 int main()
 {
 	/* Generate unique key */
@@ -68,155 +60,156 @@ int main()
 	/* Parsing the command and send to Gps controler */
 	ConsoleParseSendData();
 
-	printf("Message Terminated\n");
-
 	return 0;
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Generate Message key using ftok() and store it into iKey
-//Inputs	: None
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void GenerateMessageKey()
 {
 	ikey = ftok("progfile", 65);
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Create a Message Queue using msgget() and return msg id
-//Inputs	: None
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void CreateMessageQueue()
 {
-	uiMessageId = msgget(ikey, MESSAGE_GET_FLAG);
-	stMessage.uiMessageType = TRUE;
+	usMessageId = msgget(ikey, MESSAGE_GET_FLAG);
+	stMessage.usMessageType = TRUE;
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.******************************************
 //Purpose	: Parse the command given from user and send to the Gps controler 
-//Inputs	: None
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ConsoleParseSendData()
 {
 	while(1)
 	{
 		printf("GPS>");
-		fgets(ucUserEnteredData, MAX_SIZE, stdin);
+		fgets(pucUserEnteredData, MAX_SIZE, stdin);
 		ConsoleParseCommand();
 
-		if(strcmp(stMessage.ucMessageText, "\0") == FALSE)
+		/* If message Buffer is null continue on the loop */
+		if(strcmp(stMessage.pucMessageText, "\0") == FALSE)
 		{
-			while(1)
-			{
-				break;
-			}
+			continue;
 		}
+		/* If Buffer have the data message will send to Recever section */
 		else
 		{
-			ConsoleSendData(uiMessageId, ucConvertedData);
+			ConsoleSendData(usMessageId, pucConvertedData);
 		}
-
-		if(strcmp(ucUserEnteredData, GPS_QUIT) == FALSE )
+		/* If Quit command is occured, stop the transmission */
+		if(strcmp(pucUserEnteredData, GPS_QUIT) == FALSE )
 		{
 			break;
 		}
 	}
+	printf("Message Terminated\n");
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Identifying the user command 
-//Inputs	: None
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ConsoleParseCommand()
 {
-	uint16 uiIteration;
-	uint16 uiBufferlength = strlen(CommandTable);
+	uint16 usIteration = 0;
+	uint16 usBufferlength = strlen(CommandTable);
 
-	for(uiIteration = FALSE ; uiIteration <= uiBufferlength ; uiIteration ++)
+	for(usIteration = FALSE; usIteration <= usBufferlength; usIteration++)
 	{
-		if(strcmp(ucUserEnteredData, CommandTable[uiIteration].ucCommands) == FALSE )
+		if(strcmp(pucUserEnteredData, CommandTable[usIteration].pucCommands) == FALSE )
 		{
-			ConsoleProcessCommand(CommandTable[uiIteration].ucValue);
+			ConsoleProcessCommand(CommandTable[usIteration].pucValue);
 			break;
 		}
 	}
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
-//Purpose	: Clearing the "ucConvertedData" buffer
-//Inputs	: None
+//*************************************.FUNCTION_HEADER.*******************************************
+//Purpose	: Clearing the Data buffer
+//Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void BuffClear()
 {
-	memset(stMessage.ucMessageText, '\0', strlen(stMessage.ucMessageText));
+	memset(stMessage.pucMessageText, '\0', strlen(stMessage.pucMessageText));
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Send the Data to the gps
-//Inputs	: uint16 uiMId : Message id
-//				uint8* pucReceiveBuff : Storing the command to transmit to Gps 
+//Inputs		: uiMId : Message id
+//				  pucReceiveBuff : Storing the command to transmit to Gps 
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ConsoleSendData(uint16 uiMId, uint8* pucReceiveBuff)
 {
+
+	uint16 usMessageSendReturn = 0;
 	/* msgsnd() to send message */
-	if( (msgsnd(uiMId, &stMessage, sizeof(stMessage), 
-					MESSAGE_SND_FLAG) == MESSAGE_SND_RETURN))
+	usMessageSendReturn = msgsnd(uiMId, &stMessage, sizeof(stMessage), MESSAGE_SND_FLAG);
+
+	/* Checking whether message is send or not */
+	if(usMessageSendReturn == MESSAGE_SND_RETURN)
 	{
 		printf(" Error happened !! \n");
 	}
 	else
 	{
-		printf("Data send is :%s\n", stMessage.ucMessageText);
+		printf("Data send is :%s\n", stMessage.pucMessageText);
 		printf("Message Sent.. \n");
 		BuffClear();
 	}
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
-//Purpose	: Storing appropriate command value to  buffer
-//Inputs	: uint8* pucValue : Storing appropriate values for each command
+//*************************************.FUNCTION_HEADER.*******************************************
+//Purpose	: Storing appropriate command value to buffer
+//Inputs		: pucValue : Storing appropriate values for each command
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ConsoleProcessCommand(uint8* pucValue)
 {
-	uint16 uiIteration;
-	uint16 uiBufferlength = strlen(*pucHelpCommand);
+	uint16 usIteration = 0;
+	uint16 usBufferlength = strlen(CommandTable);
 
-	if(strcmp(pucValue, GPS_HELP_VALUE) == FALSE )
+	if(strcmp(pucValue, GPS_HELP_VALUE) == FALSE)
 	{
-		for( uiIteration = 0; uiIteration < uiBufferlength; uiIteration++)
+		for(usIteration = 0; usIteration < usBufferlength; usIteration++)
 		{
-			printf("%s", pucHelpCommand[uiIteration]);
+			printf("%s",CommandTable[usIteration].pucCommands);
 		}
 	}
-	else if(strcmp(pucValue, GPS_QUIT_VALUE) == FALSE )
+	else if(strcmp(pucValue, GPS_QUIT_VALUE) == FALSE)
 	{
-		printf("quit \n");
-		strcpy(stMessage.ucMessageText, GPS_QUIT);
+		strcpy(stMessage.pucMessageText, GPS_QUIT);
 	}
 	else
 	{
-		strcpy(stMessage.ucMessageText, pucValue);
+		strcpy(stMessage.pucMessageText, pucValue);
 	}
 
 }

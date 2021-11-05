@@ -1,148 +1,149 @@
-//****RECEIVE COMMANDS FROM THE CONSOLE (GPS CONTROLER)******
+//******************* RECEIVE COMMANDS FROM THE CONSOLE (GPS CONTROLLER) **************************
 // Copyright (c) 2021 Trenser Technology Solutions (P) Ltd
 // All Rights Reserved
-//*********************************************************************************************
-// File				: _CONTROLER_H_.c
-// Summary	: 
-// Author			: Abhilash
+//*************************************************************************************************
+// File			: Controller.c
+// Summary		: Receives the message from console application and process it.
+// Author		: Abhilash
 // Date			: 01/11/21
-//******************************* Include Files *********************************************
+//******************************* Include Files ***************************************************
 #include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <string.h>
-#include "Controler.h"
+#include "Common.h"
 
-//***************************** Global Constants *******************************************
+//***************************** Global Constants **************************************************
 
-//***************************** Local variables *********************************************
-static uint8 ucConvertedData[CONVERTED_BUFF_MAX_SIZE] = {0};
+//***************************** Local variables ***************************************************
 static key_t ikey = 0;
-static uint16 uiMessageId = FALSE;
+static uint16 usMessageId = FALSE;
 static STMESSAGEBUFFER stMessage = {0};
 static uint8 pucReceiveBuff[CONVERTED_BUFF_MAX_SIZE] = {0};
+static uint8 pucConvertedData[CONVERTED_BUFF_MAX_SIZE] = {0};
 
-//**************************** Enum Declarations *****************************************
+//**************************** Enum Declarations **************************************************
 
-//****************************** Local Functions *******************************************
+//****************************** Local Functions **************************************************
+static void BuffClear();
 static void GenerateMessageKey();
 static void CreateMessageQueue();
 static void DeleteMessageQueue();
-static void BuffClear();
 static void ControlerReceiveData();
 static void ControlerReceiveProcessData();
 
-//******************************.FUNCTION_HEADER.********************************
+//******************************.FUNCTION_HEADER.**************************************************
 //Purpose	: Receive Commands from the Message queue
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//********************************************************************************************
+//*************************************************************************************************
 
 int main()
 {
+	/* Generate unique key */
 	GenerateMessageKey();
+	/* Creates a message queue */
 	CreateMessageQueue();
-	//BuffClear();
+	/* Receive and process data from console application */
 	ControlerReceiveProcessData();
-
-	printf("Message Terminated\n");
-	/* to destroy the message queue */
+	/* Destroy the message queue */
 	DeleteMessageQueue();
 
 	return 0;
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Generate Message key using ftok() and store it into iKey
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void GenerateMessageKey()
 {
 	ikey = ftok("progfile", 65);
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Create a Message Queue using msgget() and return msg id
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void CreateMessageQueue()
 {
-	uiMessageId = msgget(ikey, MESSAGE_GET_FLAG);
-	stMessage.uiMessageType = TRUE;
+	usMessageId = msgget(ikey, MESSAGE_GET_FLAG);
+	stMessage.usMessageType = TRUE;
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Continuosly receiving the data and checking the quit command is occured or not.
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ControlerReceiveProcessData()
 {
 	while(1)
 	{
-		/* msgrcv() to receive message */
+		/* Receiving the data from console */
 		ControlerReceiveData();
-
-		if( (strcmp(stMessage.ucMessageText, QUIT_STRING)) == FALSE )
+		/* If Quit command is occured, stop the transmission */
+		if( (strcmp(stMessage.pucMessageText, QUIT_STRING)) == FALSE )
 		{
 			break;
 		}
 	}
-	
+	printf("Message Terminated\n");
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Receiving the data from console
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void ControlerReceiveData()
 {
-	//printf("%d",strlen)
-	if( msgrcv(uiMessageId, &stMessage, sizeof(stMessage),
-					MESSAGE_TYPE, MESSAGE_RCV_FLAG) == MESSAGE_RCV_RETURN )
+	uint16 usMessageReceiveReturn = 0;
+	/* msgrcv() to Receive message from console application */
+	usMessageReceiveReturn = msgrcv(usMessageId, &stMessage, sizeof(stMessage),MESSAGE_TYPE, MESSAGE_RCV_FLAG)
+	/* Checking whether message is Received or not */
+	if(usMessageReceiveReturn == MESSAGE_RCV_RETURN )
 	{
 		printf(" Error happened !! \n");
 	}
 	else
 	{
-		/* display the message */
-		printf("Data Received is : %s \n",stMessage.ucMessageText);
+		printf("Data Received is : %s \n",stMessage.pucMessageText);
 	}
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
-//Purpose	: Clearing the "ucConvertedData" buffer
+//*************************************.FUNCTION_HEADER.*******************************************
+//Purpose	: Clearing the Data buffer
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void BuffClear()
 {
-	memset(stMessage.ucMessageText, '\0', strlen(stMessage.ucMessageText));
+	memset(stMessage.pucMessageText, '\0', strlen(stMessage.pucMessageText));
 }
 
-//*************************************.FUNCTION_HEADER.**************************************
+//*************************************.FUNCTION_HEADER.*******************************************
 //Purpose	: Delete the Message queue created
 //Inputs		: None
 //Outputs	: None
-//Return	: None
+//Return		: None
 //Notes		: None
-//***************************************************************************************************
+//*************************************************************************************************
 static void DeleteMessageQueue()
 {
-	msgctl(uiMessageId, IPC_RMID, NULL);
+	msgctl(usMessageId, IPC_RMID, NULL);
 }
